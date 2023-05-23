@@ -1,0 +1,4 @@
+pystray
+bleak
+Pillow
+win10toast
