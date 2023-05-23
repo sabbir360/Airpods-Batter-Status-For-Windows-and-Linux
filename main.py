@@ -50,7 +50,7 @@ def get_data_hex():
 
 
 # Getting data from hex string and converting it to dict(json)
-def get_data()->dict:
+def get_data() -> dict:
     # for real
     raw = get_data_hex() or ""
     # for demo
@@ -193,18 +193,55 @@ def create_icon(status, left, right, case, model, charge):
 
 
 # Simple method for notification show
-def low_level_notification(model, percent):
+def win_notification(model, info):
     notifer = ToastNotifier()
-    notifer.show_toast(model, "Your battery is going low ({}%)".format(percent), "./icons/low_n.ico", 5, True)
+    notifer.show_toast(model, info, "./icons/airpod.ico", 5, True)
+
+
+def airpod_notification(model, notified):
+    """
+    dict(
+        status=1,
+        charge=dict(
+            left=left,
+            right=right,
+            case=case
+        ),
+        charging=dict(
+            left="Left Pod " if left_pod.is_charging() else "Left Pod not ",
+            right="Right Pod " if right_pod.is_charging() else "Right Pod not ",
+            case="Case " if case_pod.is_charging() else "Case not "
+        ),
+        model=model
+    )
+
+    """
+    if not notified:
+        return
+
+    item = model
+    if item.get("status") == 1:
+        charge = item.get("charge")
+        if charge.get("left") == -1:
+            charge["left"] = False
+        if charge.get("right") == -1:
+            charge["right"] = False
+        if charge.get("case") == -1:
+            charge["case"] = False
+        info = f"""Charge: Left: {charge.get('left') or "N/A"},\nRight: {charge.get('right') or "N/A"},\nCase: {charge.get('case') or "N/A"}
+        """
+        win_notification(f"{item.get('model')} Found", info)
 
 
 def run():
-
     connected = True
     cache = None
     cached_process = None
+    notified = True
     while True:
         data = get_data()
+        airpod_notification(data, notified)
+        notified = False
         if data["status"] == 1:
             # Checking cache and current data for avoid Windows duplicate tray icon bug
             if cache != data["charge"] or not connected:
@@ -222,9 +259,9 @@ def run():
                 if charge != "":
                     charge = charge[:-1]
                 proc = Process(target=create_icon, args=(1,
-                                                         data["charge"]["left"], # left
-                                                         data["charge"]["right"], # right
-                                                         data["charge"]["case"], # case
+                                                         data["charge"]["left"],  # left
+                                                         data["charge"]["right"],  # right
+                                                         data["charge"]["case"],  # case
                                                          data["model"], charge))
                 proc.start()
 
@@ -233,8 +270,12 @@ def run():
                 cache = data["charge"]
 
                 # Checking for low level for notify show
-                if int(data["charge"]["left"]) <= LOW_LEVEL or int(data["charge"]["right"]) <= LOW_LEVEL:
-                    low_level_notification(data["model"], data["charge"]["right"])
+                if LOW_LEVEL > data["charge"]["left"] != -1:
+                    win_notification(data["model"], f'Battery level going low L: {data["charge"]["left"]}')
+                if LOW_LEVEL > data["charge"]["right"] != -1:
+                    win_notification(data["model"], f'Battery level going low R: {data["charge"]["right"]}')
+                if LOW_LEVEL > data["charge"]["case"] != -1:
+                    win_notification(data["model"], f'Battery level going low Case: {data["charge"]["case"]}')
 
         elif data["status"] == 0:
             # Checking cache and current data for avoid Windows duplicate tray icon bug
@@ -255,5 +296,3 @@ def run():
 
 if __name__ == '__main__':
     run()
-
-
